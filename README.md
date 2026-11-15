@@ -24,15 +24,12 @@ flowchart TB
     subgraph NET["VirtualBox Host-Only Network — 192.168.56.0/24 (isolated, no internet)"]
         DC["<b>DC01</b> — 192.168.56.10<br/>Windows Server 2022<br/>Domain Controller (soclab.local)<br/><br/>• AD DS + DNS<br/>• auditpol policy<br/>• Sysmon<br/>• Security log"]
         VICTIM["<b>soc-victim</b> — 192.168.56.12<br/>Windows Server 2016<br/>Domain-joined<br/><br/>• Attack origin point<br/>• Sysmon"]
-        SIEM["<b>soc-siem</b> — 192.168.56.x<br/>Ubuntu Server<br/>Wazuh (in progress)<br/><br/>• Log collector<br/>• Alerts on 4625/4771/4769"]
     end
 
     VICTIM -->|"Kerberos/NTLM auth, SPN ticket requests, failed logons"| DC
-    DC -.->|"forwarded events (planned)"| SIEM
-    VICTIM -.->|"forwarded events (planned)"| SIEM
 ```
 
-**Why this topology matters:** attacks run *from* `soc-victim` *against* `DC01`, over the network, the same direction a real compromised workstation would attack a domain controller. Nothing in the attack exercises runs locally on the DC. `soc-siem` (in progress) will sit on the same segment and pull events from both via the Wazuh agent, centralizing what's currently gathered through manual `Get-WinEvent` queries.
+**Why this topology matters:** attacks run *from* `soc-victim` *against* `DC01`, over the network, the same direction a real compromised workstation would attack a domain controller. Nothing in the attack exercises runs locally on the DC. Detection is done directly against the DC's own Security log via `Get-WinEvent` — no intermediate log collector, so every finding below is traced straight back to a real, unprocessed Windows event.
 
 ## Environment
 
@@ -40,9 +37,8 @@ flowchart TB
 |---|---|---|---|
 | `DC01` | Domain controller for `soclab.local` | Windows Server 2022 Standard Evaluation | `192.168.56.10` |
 | `soc-victim` | Domain-joined workstation, attack origin | Windows Server 2016 | `192.168.56.12` |
-| `soc-siem` | Log aggregation (Wazuh), in progress | Ubuntu Server | `192.168.56.x` |
 
-All three sit on an isolated VirtualBox **Host-Only** network, no internet access on that segment. Files are moved in through shared folders rather than downloaded directly on the VMs, which keeps the lab genuinely air-gapped and mirrors how a real segmented environment restricts egress.
+Both sit on an isolated VirtualBox **Host-Only** network, no internet access on that segment. Files are moved in through shared folders rather than downloaded directly on the VMs, which keeps the lab genuinely air-gapped and mirrors how a real segmented environment restricts egress.
 
 ## Setup
 
@@ -133,7 +129,7 @@ Every command run, the actual output captured, and the full reasoning behind eac
 
 ## Roadmap
 
-- [ ] Finish `soc-siem` (Ubuntu + Wazuh), so detections don't depend on manual `Get-WinEvent` queries
+- [ ] Add centralized log collection (a SIEM, e.g. Wazuh) so detections don't depend on manual `Get-WinEvent` queries
 - [ ] Convert the password-spray and Kerberoasting findings into Sigma rules
 - [ ] Add a proper client machine and attempt lateral movement (4648, 5140)
 - [ ] Add an attacker-perspective VM (likely Kali) for a less one-sided simulation
